@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>누적 입력 웹앱</title>
+
+  <style>
+    body{font-family:system-ui;max-width:980px;margin:24px auto;padding:0 12px}
+    h1{margin:0 0 12px}
+    .ok{padding:10px;background:#fffae6;border:1px solid #f3d37a;margin-bottom:12px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    label{display:block;font-size:13px}
+    input,select,textarea,button{width:100%;padding:10px;margin-top:6px;box-sizing:border-box}
+    textarea{grid-column:1/-1}
+    button{grid-column:1/-1;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{border:1px solid #ddd;padding:8px;font-size:13px;text-align:left}
+    th{background:#f3f3f3}
+    .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+  </style>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+    // ✅ 본인 값으로 교체
+    const SUPABASE_URL = "https://grdsptwybaohkoufmdnh.supabase.co";
+    const SUPABASE_ANON_KEY = "PASTE_YOUR_ANON_PUBLIC_KEY_HERE";
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const $ = (id) => document.getElementById(id);
+
+    async function loadList() {
+      const { data, error } = await supabase
+        .from("entries")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) {
+        $("statusMsg").textContent = "불러오기 실패: " + error.message;
+        return;
+      }
+
+      const tbody = $("tbody");
+      tbody.innerHTML = "";
+      data.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${(r.created_at ?? "").slice(0,19).replace("T"," ")}</td>
+          <td>${r.date ?? ""}</td>
+          <td>${r.type ?? ""}</td>
+          <td>${r.name ?? ""}</td>
+          <td>${r.school ?? ""}</td>
+          <td>${r.amount ?? ""}</td>
+          <td>${r.manager ?? ""}</td>
+          <td>${r.status ?? ""}</td>
+          <td>${r.memo ?? ""}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      $("count").textContent = `${data.length}건`;
+      $("statusMsg").textContent = "불러오기 성공 ✅";
+    }
+
+    async function addEntry(e) {
+      e.preventDefault();
+      $("statusMsg").textContent = "저장 중...";
+
+      const payload = {
+        date: $("date").value || null,
+        type: $("type").value || null,
+        name: $("name").value.trim(),
+        school: $("school").value || null,
+        amount: $("amount").value ? Number($("amount").value) : null,
+        manager: $("manager").value || null,
+        status: $("status").value || null,
+        memo: $("memo").value || null
+      };
+
+      const { error } = await supabase.from("entries").insert([payload]);
+      if (error) {
+        $("statusMsg").textContent = "저장 실패: " + error.message;
+        return;
+      }
+
+      e.target.reset();
+      $("statusMsg").textContent = "저장 성공 ✅";
+      loadList();
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("form").addEventListener("submit", addEntry);
+      loadList();
+    });
+  </script>
+</head>
+<body>
+  <div class="ok">SCRIPT RUNNING ✅ (이 박스가 보이면 HTML/JS는 정상입니다)</div>
+
+  <h1>누적 입력 웹앱</h1>
+
+  <form id="form" class="grid">
+    <div>
+      <label>일자</label>
+      <input id="date" type="date" />
+    </div>
+    <div>
+      <label>구분</label>
+      <select id="type">
+        <option value="등록금">등록금</option>
+        <option value="기숙사">기숙사</option>
+        <option value="환불">환불</option>
+        <option value="비자">비자</option>
+        <option value="기타">기타</option>
+      </select>
+    </div>
+
+    <div>
+      <label>이름(필수)</label>
+      <input id="name" required />
+    </div>
+    <div>
+      <label>학교</label>
+      <input id="school" />
+    </div>
+
+    <div>
+      <label>금액</label>
+      <input id="amount" type="number" step="1" />
+    </div>
+    <div>
+      <label>담당자</label>
+      <input id="manager" />
+    </div>
+
+    <div>
+      <label>상태</label>
+      <select id="status">
+        <option value="진행중">진행중</option>
+        <option value="완료">완료</option>
+        <option value="보류">보류</option>
+      </select>
+    </div>
+    <div></div>
+
+    <textarea id="memo" rows="3" placeholder="메모"></textarea>
+    <button type="submit">저장(누적)</button>
+  </form>
+
+  <div class="bar">
+    <strong id="statusMsg">상태 표시 영역</strong>
+    <span id="count"></span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>작성일시</th><th>일자</th><th>구분</th><th>이름</th><th>학교</th><th>금액</th><th>담당자</th><th>상태</th><th>메모</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</body>
+</html>
